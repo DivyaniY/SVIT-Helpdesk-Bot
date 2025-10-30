@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SVIT Helpdesk Bot 🎓</title>
+
+<style>
+/* ---------- base ---------- */
+:root{
+  --bg:#e9eef5;
+  --card:#fff;
+  --muted:#6b7280;
+  --primary:#007aff;
+  --bot-bg:#e4f1ff;
+  --user-bg:#cfe3ff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);display:flex;justify-content:center;padding:22px;font-family:Inter,system-ui,Arial;}
+
+.chat-wrap{
+  width:100%;max-width:880px;height:88vh;background:var(--card);border-radius:16px;display:flex;flex-direction:column;
+  box-shadow:0 18px 40px rgba(9,30,66,0.08);overflow:hidden;
+}
+
+/* header */
+.header{
+  display:flex;align-items:center;justify-content:space-between;padding:18px 22px;background:linear-gradient(90deg,#0663d9,#0a9bff);color:#fff;
+  border-radius:12px 12px 0 0;
+}
+.header .title{font-weight:700;font-size:20px}
+.header small{display:block;font-weight:500;opacity:.92;font-size:13px}
+
+/* chat area */
+.chat{
+  flex:1;padding:20px;overflow:auto;display:flex;flex-direction:column;gap:14px;
+  scroll-behavior:smooth;
+}
+
+/* message bubbles */
+.msg {
+  max-width:78%;
+  padding:14px 16px;border-radius:14px;font-size:15px;line-height:1.35;
+  box-shadow: 0 8px 20px rgba(9,30,66,0.04);
+}
+.bot { background:var(--bot-bg); color:#02203c; align-self:flex-start; }
+.user { background:var(--user-bg); color:#02203c; align-self:flex-end; }
+
+/* small avatar dot left/right */
+.row { display:flex; gap:12px; align-items:flex-end; }
+.left .avatar { order:0 }
+.right { justify-content:flex-end; }
+.avatar {
+  width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--primary);
+  background:#fff;box-shadow:0 8px 20px rgba(9,30,66,0.05);
+  flex-shrink:0;font-size:16px;
+}
+
+/* suggestions / chips (always sticky above input) */
+.chips-wrap{
+  position:sticky;bottom:86px;display:flex;justify-content:center;padding:12px 18px;z-index:40;
+  transition:transform .28s cubic-bezier(.2,.9,.2,1);
+}
+.chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:100%;margin:auto;}
+.chip{
+  background:#eef6ff;border-radius:999px;padding:10px 18px;border:0;font-weight:700;color:#004a9f;cursor:pointer;
+  transform:translateY(30px);opacity:0;box-shadow:0 8px 20px rgba(9,30,66,0.06);
+}
+/* animate in */
+.chip.enter{ animation:chipIn .36s forwards; }
+@keyframes chipIn{ to{ transform:translateY(0); opacity:1 } }
+
+/* input area (fixed) */
+.input-wrap{ background:transparent;padding:14px 20px;border-radius:0 0 12px 12px; }
+.input{
+  display:flex;gap:12px;align-items:center;background:#fff;border-radius:999px;padding:10px 12px;box-shadow:0 8px 28px rgba(9,30,66,0.06);
+}
+.input input{ flex:1;border:0;outline:none;padding:12px 10px;border-radius:999px;font-size:15px;background:transparent }
+.btn{ background:var(--primary);color:#fff;border:none;padding:10px 16px;border-radius:12px;cursor:pointer;font-weight:700; }
+
+/* typing dots */
+.typing{ display:inline-flex;gap:6px;padding:10px;border-radius:12px;background:var(--bot-bg); }
+.typing > i{ width:8px;height:8px;border-radius:50%;background:#789; animation:pulse 1s infinite ease-in-out; opacity:.9 }
+.typing > i:nth-child(2){ animation-delay:.15s } .typing > i:nth-child(3){ animation-delay:.3s }
+@keyframes pulse{ 0%{ transform:translateY(0); opacity:1 } 50%{ transform:translateY(-6px); opacity:.45 } 100%{ transform:translateY(0); opacity:1 } }
+
+/* dark mode overrides (light default) */
+body.dark{ background:#061324 }
+body.dark .chat-wrap{ background:#071421 }
+body.dark .bot{ background:#0f2b3d;color:#e7f6ff }
+body.dark .user{ background:#064b7a;color:white }
+body.dark .chip{ background:#0b2d42;color:#bfe8ff;box-shadow:none }
+
+/* responsive */
+@media (max-width:520px){
+  .header .title{font-size:18px}
+  .chat{ padding:12px }
+  .chip{ padding:8px 12px; font-size:13px }
+}
+</style>
+</head>
+<body>
+
+<div class="chat-wrap" role="application" aria-label="SVIT Helpdesk">
+  <div class="header">
+    <div>
+      <div class="title">SVIT Helpdesk Bot 🎓</div>
+      <small>Ask about Admissions, Courses, Fees & More</small>
+    </div>
+    <div>
+      <button id="themeBtn" title="Toggle theme" style="border-radius:50%;width:36px;height:36px;border:0;background:#fff;cursor:pointer">🌙</button>
+    </div>
+  </div>
+
+  <div id="chat" class="chat" aria-live="polite"></div>
+
+  <div class="chips-wrap">
+    <div id="chips" class="chips"></div>
+  </div>
+
+  <div class="input-wrap">
+    <div class="input">
+      <input id="input" placeholder="Type a message or choose a suggestion..." aria-label="message input" />
+      <button id="send" class="btn">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================== CONFIG ================== */
+const WEBHOOK = "http://localhost:3000/webhook"; // change if deployed
+const MAIN_CHIPS = ["Admissions","Courses","Fees","Events","Hostel","Transport","Library","Placement","Exams/Results","Contact"];
+const COURSES = ["IT","CE","EC","Mechanical","Civil","Electrical","Aeronautical","MCA","M.Tech","⬅ Back to Main"];
+
+/* ================== STATE ================== */
+const chatEl = document.getElementById("chat");
+const chipsEl = document.getElementById("chips");
+const inputEl = document.getElementById("input");
+const sendBtn = document.getElementById("send");
+const themeBtn = document.getElementById("themeBtn");
+
+let dark = false;
+let history = JSON.parse(localStorage.getItem("svit_history") || "[]");
+
+/* ================ UTIL: render bubbles ================ */
+function renderMessage(text, who="bot"){
+  const row = document.createElement("div");
+  row.className = "row " + (who==="bot" ? "left" : "right");
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.textContent = who==="bot" ? "SV" : "YOU";
+  const msg = document.createElement("div");
+  msg.className = "msg " + (who==="bot" ? "bot" : "user");
+  // allow small formatting for short replies (bullets)
+  msg.innerText = text;
+  row.appendChild(avatar);
+  row.appendChild(msg);
+  chatEl.appendChild(row);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  // persist
+  history.push({who,text,t:Date.now()});
+  localStorage.setItem("svit_history", JSON.stringify(history));
+}
+
+/* ================ UTIL: show typing ================ */
+function showTyping(on=true){
+  if(on){
+    const t = document.createElement("div");
+    t.className="typing";
+    t.id="___typing";
+    t.innerHTML = "<i></i><i></i><i></i>";
+    const row = document.createElement("div");
+    row.className="row left";
+    const avatar = document.createElement("div");
+    avatar.className="avatar";
+    avatar.textContent="SV";
+    row.appendChild(avatar);
+    row.appendChild(t);
+    chatEl.appendChild(row);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  } else {
+    const el = document.getElementById("___typing");
+    if(el) el.parentElement.remove();
+  }
+}
+
+/* ================ REHYDRATE HISTORY ================ */
+function restoreHistory(){
+  chatEl.innerHTML = "";
+  history.forEach(msg => {
+    const row = document.createElement("div");
+    row.className = "row " + (msg.who === "bot" ? "left" : "right");
+    const avatar = document.createElement("div"); avatar.className="avatar";
+    avatar.textContent = msg.who === "bot" ? "SV" : "YOU";
+    const m = document.createElement("div"); m.className = "msg " + (msg.who === "bot" ? "bot" : "user");
+    m.innerText = msg.text;
+    row.appendChild(avatar); row.appendChild(m);
+    chatEl.appendChild(row);
+  });
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+/* ================ CHIPS: animate in ================ */
+function showChips(list){
+  chipsEl.innerHTML = "";
+  list.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.innerText = c;
+    // add enter animate with slight delay
+    setTimeout(()=> b.classList.add("enter"), 30 + i*30);
+    b.onclick = () => onChipClick(c);
+    chipsEl.appendChild(b);
+  });
+}
+
+/* ================ CHIP CLICK BEHAVIOR ================ */
+function onChipClick(label){
+  // Courses submenu behavior:
+  if(label === "Courses"){
+    // add user bubble then show submenu chips (no backend call)
+    renderMessage("Courses","user");
+    // show a short bot prompt before chips (no backend)
+    renderMessage("🎓 Courses Offered: IT, CE, EC, Mechanical, Civil, Electrical, Aeronautical, MCA, M.Tech\n👉 Select a department below","bot");
+    // update chips to course chips
+    showChips(COURSES);
+    return;
+  }
+
+  // Back to main from submenu
+  if(label === "⬅ Back to Main"){
+    renderMessage(label,"user");
+    showChips(MAIN_CHIPS);
+    renderMessage("Main menu shown. Choose an option.","bot");
+    return;
+  }
+
+  // If label is one of main chips (non-Courses) => we call backend
+  if(MAIN_CHIPS.includes(label)){
+    renderMessage(label,"user");
+    callBackend(label);
+    return;
+  }
+
+  // If label is a course branch (calls backend)
+  if(COURSES.includes(label)){
+    renderMessage(label,"user");
+    callBackend(label); // branch -> backend will reply with short info
+    return;
+  }
+
+  // default
+  renderMessage(label,"user");
+  callBackend(label);
+}
+
+/* ================ BACKEND CALL with typing delay ================ */
+async function callBackend(queryText){
+  // show typing for a natural delay (500ms) then fetch
+  showTyping(true);
+  await new Promise(r=>setTimeout(r, 500)); // natural pause
+  try{
+    const res = await fetch(WEBHOOK, {
+      method: "POST",
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ query: queryText })
+    });
+    showTyping(false);
+    if(!res.ok) throw new Error("network");
+    const j = await res.json();
+    // small extra delay for realism
+    await new Promise(r=>setTimeout(r, 250));
+    renderMessage(j.reply || j.fulfillmentText || "Sorry, no info right now.","bot");
+
+    // after branch reply show navigation chips (Back to Courses + Main)
+    if(COURSES.includes(queryText)){
+      showChips(["⬅ Back to Courses","⬅ Back to Main"]);
+    } else {
+      // leave main chips
+      showChips(MAIN_CHIPS);
+    }
+  }catch(e){
+    showTyping(false);
+    renderMessage("⚠ Network error. Make sure backend is running at " + WEBHOOK,"bot");
+    showChips(MAIN_CHIPS);
+  }
+}
+
+/* ================ USER ACTIONS ================ */
+sendBtn.addEventListener("click", ()=>{
+  const text = inputEl.value.trim();
+  if(!text) return;
+  inputEl.value = "";
+  onTextSubmit(text);
+});
+inputEl.addEventListener("keydown", (e)=>{
+  if(e.key === "Enter") { e.preventDefault(); sendBtn.click(); }
+});
+
+function onTextSubmit(text){
+  // map simple 'courses' to show submenu
+  const t = text.toLowerCase();
+  if(t === "courses" || t === "course"){
+    renderMessage("Courses","user");
+    renderMessage("🎓 Courses Offered: IT, CE, EC, Mechanical, Civil, Electrical, Aeronautical, MCA, M.Tech\n👉 Select a department below","bot");
+    showChips(COURSES);
+    return;
+  }
+  // otherwise call backend (general)
+  renderMessage(text,"user");
+  callBackend(text);
+}
+
+/* ================ THEME & INIT ================ */
+themeBtn.addEventListener("click", ()=>{
+  dark = !dark;
+  document.body.classList.toggle("dark", dark);
+  themeBtn.textContent = dark ? "☀️" : "🌙";
+  localStorage.setItem("svit_theme", dark ? "dark":"light");
+});
+const savedTheme = localStorage.getItem("svit_theme");
+if(savedTheme === "dark"){ dark = true; document.body.classList.add("dark"); themeBtn.textContent="☀️"; } // default light
+
+// initial render
+if(history.length === 0){
+  // welcome
+  renderMessage("👋 Welcome to SVIT Helpdesk — quick info & guided flow.","bot");
+  showChips(MAIN_CHIPS);
+} else {
+  restoreHistory();
+  showChips(MAIN_CHIPS);
+}
+</script>
+</body>
+</html>
