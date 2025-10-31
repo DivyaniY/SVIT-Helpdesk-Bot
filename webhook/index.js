@@ -3,78 +3,88 @@ const cors = require("cors");
 const { twiml: { MessagingResponse } } = require("twilio");
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
 
-// ✅ Knowledge Base
-const MAIN = {
-  admissions: "📌 Admissions — Eligibility: 10+2 (PCM). Apply via ACPC/GUJCET or management quota. Visit https://svitvasad.ac.in",
-  courses: "🎓 Courses Offered: IT, CE, EC, Mechanical, Civil, Electrical, Aeronautical, MCA, M.Tech",
-  fees: "💰 Fees vary by branch & year; contact accounts office for exact figures.",
-  hostel: "🏠 Hostels available with Wi-Fi & mess facilities.",
-  placement: "💼 Placement — Strong industry connect with internships & drives ✅",
-  events: "🎪 Events: Prakarsh (Tech), Vrund (Cultural), Workshops",
-  transport: "🚌 College buses available from various routes",
-  library: "📚 Library with books, e-journals & long hours",
-  contact: "☎ Contact: https://svitvasad.ac.in/contact-us"
+// ✅ Submenu Knowledge
+const INFO = {
+  admissions: {
+    eligibility: "✅ Eligibility → 10+2 (PCM)\nAdmission via GUJCET / ACPC",
+    documents: "📄 Required Docs → 10th/12th Marksheet, Aadhar ID, Photos",
+    process: "📝 Fill ACPC form → Attend counselling → Seat allotment",
+    dates: "📅 Dates vary yearly. Check https://svitvasad.ac.in"
+  },
+  fees: {
+    branches: "💰 Branch-wise Fees → CE/IT: ₹80K per semester approx",
+    hostel: "🏠 Hostel Fees → ₹70K yearly incl. mess",
+    transport: "🚌 Transport Fees → ₹25K approx depending route"
+  },
+  placement: {
+    recruiters: "🏢 Recruiters → TCS, Wipro, E-infochips, L&T, Tata",
+    stats: "📊 Avg Package → 3.8 LPA\nHighest → 7 LPA",
+    training: "🧑‍🏫 Aptitude + Soft Skill + Technical Training provided"
+  },
+  exams: {
+    internal: "📘 Two internal exams each semester",
+    gtu: "🔹 GTU external exam schedule on https://www.gtu.ac.in",
+    backlogs: "♻ Allowed to reappear in backlog subjects"
+  },
+  hostel: {
+    facilities: "🛏️ WiFi, Hot Water, CCTV, Mess included",
+    rules: "📌 10PM entry deadline, no outside stay without permission"
+  },
+  transport: {
+    routes: "🚌 Buses available from Anand, Vadodara & nearby villages"
+  },
+  library: {
+    hours: "⌛ Mon–Sat: 8AM–8PM",
+    eResources: "💻 Online journal access available"
+  },
+  contact: {
+    location: "📍 SVIT, Vasad, Gujarat",
+    phone: "☎ +91 12345 67890"
+  }
 };
 
-const COURSES = {
-  it: "📘 IT — Software development, Data, Cloud basics.",
-  ce: "💻 CE — Algorithms, Systems, Web & Software Engineering.",
-  ec: "📡 EC — Communication, IoT & VLSI basics."
-};
-
-// ✅ FIXED – Smarter intent resolution
+// ✅ Smart Resolver
 function resolve(text) {
-  if (!text) return { reply: "Please ask about Admissions, Courses, Fees..." };
-  const q = text.toLowerCase().trim();
+  if (!text) return "Ask anything from menu 🙂";
+  const q = text.toLowerCase();
 
-  // ✅ Greeting
-  if (/^(hi|hello|hey|menu)$/i.test(q)) {
-    return { reply: "👋 Hi! Ask about Admissions, Courses, Fees & More!" };
+  // Identify main category
+  for (const cat in INFO) {
+    if (q.includes(cat)) return "Select one: " + Object.keys(INFO[cat]).join(", ");
   }
 
-  // ✅ Exact match priority
-  if (MAIN[q]) return { reply: MAIN[q] };
-  if (COURSES[q]) return { reply: COURSES[q] };
+  // Identify submenu selection
+  for (const cat in INFO) {
+    for (const sub in INFO[cat]) {
+      if (q.includes(sub)) return INFO[cat][sub];
+    }
+  }
 
-  // ✅ Partial match fallback AFTER exact check
-  for (const k in COURSES)
-    if (q.includes(k)) return { reply: COURSES[k] };
-
-  for (const k in MAIN)
-    if (q.includes(k)) return { reply: MAIN[k] };
-
-  return {
-    reply: "I don't have that yet. Try: Admissions, Courses, Placement ✅"
-  };
+  return "Try using menu buttons ✅";
 }
 
-// ✅ Frontend webhook
+// ✅ Webhook for Website UI
 app.post("/webhook", (req, res) => {
-  const question = req.body.query || req.body.text || req.body.Body || "";
-  const { reply } = resolve(question);
-  res.json({ reply });
+  const q = req.body.query || req.body.text || "";
+  const reply = resolve(q);
+  return res.json({ reply });
 });
 
-// ✅ WhatsApp webhook
+// ✅ WhatsApp Webhook
 app.post("/whatsapp", (req, res) => {
   const twiml = new MessagingResponse();
-  const incoming = req.body.Body || "";
-  const { reply } = resolve(incoming);
-
+  const q = req.body.Body || "";
+  const reply = resolve(q);
   twiml.message(reply + "\n\nType *menu* anytime ✅");
-
   res.set("Content-Type", "text/xml");
-  res.send(twiml.toString());
+  return res.send(twiml.toString());
 });
 
-// Root check
-app.get("/", (_, res) => res.send("✅ SVIT Webhook Running!"));
-
-app.listen(PORT, () => console.log(`✅ Webhook up at ${PORT}`));
+app.get("/", (_, res) => res.send("✅ SVIT Webhook OK"));
+app.listen(PORT, () => console.log(`✅ Running @ ${PORT}`));
