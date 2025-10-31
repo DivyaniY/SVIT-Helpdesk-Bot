@@ -10,12 +10,12 @@
   --bot-bg:#e4f1ff; --user-bg:#cfe3ff;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);display:flex;justify-content:center;padding:22px;font-family:Inter,system-ui,Arial;}
-.chat-wrap{width:100%;max-width:880px;height:88vh;background:var(--card);border-radius:16px;display:flex;flex-direction:column;box-shadow:0 18px 40px rgba(9,30,66,0.08);overflow:hidden;}
+body{margin:0;background:var(--bg);display:flex;justify-content:center;padding:22px;font-family:Inter,system-ui,Arial;height:100vh;}
+.chat-wrap{width:100%;max-width:880px;height:calc(100vh - 44px);background:var(--card);border-radius:16px;display:flex;flex-direction:column;box-shadow:0 18px 40px rgba(9,30,66,0.08);overflow:hidden;}
 .header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;background:linear-gradient(90deg,#0663d9,#0a9bff);color:#fff;border-radius:12px 12px 0 0;}
 .header .title{font-weight:700;font-size:20px} .header small{display:block;font-weight:500;opacity:.92;font-size:13px}
-.chat{flex:1;padding:20px;overflow:auto;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth;}
-.msg {max-width:78%;padding:14px 16px;border-radius:14px;font-size:15px;line-height:1.35;box-shadow:0 8px 20px rgba(9,30,66,0.04);white-space:pre-wrap;}
+.chat{flex:1;padding:20px;overflow:auto;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth;background:linear-gradient(180deg, rgba(255,255,255,0.6), transparent);}
+.msg {max-width:78%;padding:14px 16px;border-radius:14px;font-size:15px;line-height:1.45;box-shadow:0 8px 20px rgba(9,30,66,0.04);white-space:pre-wrap;}
 .bot { background:var(--bot-bg); color:#02203c; align-self:flex-start; }
 .user { background:var(--user-bg); color:#02203c; align-self:flex-end; }
 .row { display:flex; gap:12px; align-items:flex-end; }
@@ -23,16 +23,18 @@ body{margin:0;background:var(--bg);display:flex;justify-content:center;padding:2
 .avatar{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;background:#fff;color:var(--primary);box-shadow:0 8px 20px rgba(9,30,66,0.05);flex-shrink:0;font-size:16px;}
 .chips-wrap{position:sticky;bottom:86px;display:flex;justify-content:center;padding:12px 18px;z-index:40;}
 .chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:100%;}
-.chip{background:#eef6ff;border-radius:999px;padding:10px 18px;border:0;font-weight:700;color:#004a9f;cursor:pointer;opacity:0;transform:translateY(20px);box-shadow:0 8px 20px rgba(9,30,66,0.06);}
+.chip{background:#eef6ff;border-radius:999px;padding:10px 18px;border:0;font-weight:700;color:#004a9f;cursor:pointer;opacity:0;transform:translateY(20px);box-shadow:0 8px 20px rgba(9,30,66,0.06);border:1px solid rgba(0,59,140,0.06)}
 .chip.enter{ animation:chipIn .36s forwards; } @keyframes chipIn{ to{ opacity:1; transform:translateY(0); } }
-.input-wrap{ padding:14px 20px; } .input{display:flex;gap:12px;background:#fff;border-radius:999px;padding:10px 12px;box-shadow:0 8px 28px rgba(9,30,66,0.06);}
+.input-wrap{ padding:14px 20px;background:transparent;border-top:1px solid rgba(10,30,60,0.04) } 
+.input{display:flex;gap:12px;background:#fff;border-radius:999px;padding:10px 12px;box-shadow:0 8px 28px rgba(9,30,66,0.06);align-items:center;}
 .input input{ flex:1;border:0;outline:none;padding:12px 10px;border-radius:999px;font-size:15px;background:transparent }
-.btn{ background:var(--primary);color:#fff;border:none;padding:10px 16px;border-radius:12px;cursor:pointer;font-weight:700; }
+.btn{ background:var(--primary);color:#fff;border:none;padding:10px 16px;border-radius:12px;cursor:pointer;font-weight:700;box-shadow: 0 8px 18px rgba(2,100,255,0.12) }
 .typing{ display:inline-flex;gap:6px;padding:10px;border-radius:12px;background:var(--bot-bg); }
 .typing i{ width:8px;height:8px;border-radius:50%;background:#789; animation:pulse 1s infinite; } .typing i:nth-child(2){ animation-delay:.15s } .typing i:nth-child(3){ animation-delay:.3s } @keyframes pulse{ 50%{transform:translateY(-6px);opacity:.4} }
 body.dark{ background:#061324 } body.dark .chat-wrap{ background:#071421 } body.dark .bot{ background:#0f2b3d;color:#e7f6ff } body.dark .user{ background:#064b7a;color:white } body.dark .chip{ background:#0b2d42;color:#bfe8ff;box-shadow:none }
 @media(max-width:520px){ .header .title{font-size:18px} .chat{ padding:12px } .chip{ font-size:13px } }
 a.bot-link{ color: #003a8c; font-weight:700; text-decoration: underline; }
+.small-muted{ color:var(--muted); font-size:13px; margin-top:4px; }
 </style>
 </head>
 <body>
@@ -77,47 +79,44 @@ const themeBtn = document.getElementById("themeBtn");
 let dark = false;
 let history = JSON.parse(localStorage.getItem("svit_history") || "[]");
 
-/* ---------- HTML helpers ---------- */
+/* ---------- helpers ---------- */
+// creates DOM bubble; bot accepts HTML-safe string (we trust backend)
 function createBubbleHTML(text, who="bot"){
-  // Bot messages may include HTML (links). We will trust the backend's returned HTML snippets.
   const wrapper = document.createElement("div");
   wrapper.className = "row " + (who==="bot" ? "left" : "right");
-  const avatar = document.createElement("div");
-  avatar.className = "avatar";
+  const avatar = document.createElement("div"); avatar.className = "avatar";
   avatar.textContent = who==="bot" ? "SV" : "YOU";
-  const msg = document.createElement("div");
-  msg.className = "msg " + (who==="bot" ? "bot" : "user");
+  const msg = document.createElement("div"); msg.className = "msg " + (who==="bot" ? "bot" : "user");
   if(who === "bot"){
-    // allow small safe HTML: convert newlines to <br> and keep links
+    // render HTML from backend (we only expect <b>, <br>, <a class="bot-link"...> )
     msg.innerHTML = text;
+    // ensure links open in new tab when clicked (for some browsers)
+    msg.querySelectorAll && msg.querySelectorAll('a').forEach(a => a.setAttribute('target','_blank'));
   } else {
     msg.innerText = text;
   }
-  wrapper.appendChild(avatar);
-  wrapper.appendChild(msg);
+  wrapper.appendChild(avatar); wrapper.appendChild(msg);
   return wrapper;
 }
 
-/* ---------- render message ---------- */
 function renderMessage(text, who="bot"){
   const el = createBubbleHTML(text, who);
   chatEl.appendChild(el);
   chatEl.scrollTop = chatEl.scrollHeight;
+  // persist minimal info (text as returned/rendered)
   history.push({who, text});
   localStorage.setItem("svit_history", JSON.stringify(history));
 }
 
-/* ---------- typing indicator ---------- */
+/* typing indicator */
 function showTyping(on=true){
   if(on){
+    if(document.getElementById("__typing")) return;
     const t = document.createElement("div");
-    t.className="typing";
-    t.id="__typing";
+    t.className="typing"; t.id="__typing";
     t.innerHTML = "<i></i><i></i><i></i>";
-    const row = document.createElement("div");
-    row.className = "row left";
-    const avatar = document.createElement("div");
-    avatar.className = "avatar"; avatar.textContent="SV";
+    const row = document.createElement("div"); row.className = "row left";
+    const avatar = document.createElement("div"); avatar.className = "avatar"; avatar.textContent="SV";
     row.appendChild(avatar); row.appendChild(t);
     chatEl.appendChild(row);
     chatEl.scrollTop = chatEl.scrollHeight;
@@ -127,7 +126,7 @@ function showTyping(on=true){
   }
 }
 
-/* ---------- chips UI ---------- */
+/* chips UI */
 function showChips(list){
   chipsEl.innerHTML = "";
   list.forEach((c, i) => {
@@ -140,11 +139,11 @@ function showChips(list){
   });
 }
 
-/* ---------- chip click behavior ---------- */
+/* chip behavior */
 function onChipClick(label){
   if(label === "Courses"){
     renderMessage("Courses","user");
-    renderMessage("🎓 <strong>Courses Offered</strong>: IT, CE, EC, Mechanical, Civil, Electrical, Aeronautical, MCA, M.Tech<br>👉 Select a department below","bot");
+    renderMessage("🎓 <b>Courses Offered</b>: IT, CE, EC, Mechanical, Civil, Electrical, Aeronautical, MCA, M.Tech<br>👉 Select a department below","bot");
     showChips(COURSES);
     return;
   }
@@ -154,12 +153,12 @@ function onChipClick(label){
     showChips(MAIN_CHIPS);
     return;
   }
-  // courses submenu items and other chips both call backend
+  // both course items and main chips call backend
   renderMessage(label,"user");
   callBackend(label);
 }
 
-/* ---------- call backend ---------- */
+/* call backend: fetch + typing */
 async function callBackend(queryText){
   showTyping(true);
   await new Promise(r=>setTimeout(r, 350)); // natural pause
@@ -172,12 +171,13 @@ async function callBackend(queryText){
     showTyping(false);
     if(!res.ok) throw new Error("network");
     const j = await res.json();
-    // backend returns plain text which may contain anchor tags – render as HTML
-    const safeHtml = (j.reply || j.fulfillmentText || "Sorry, no info right now.")
-      .replace(/\n/g, "<br>");
+    // backend returns HTML-safe string for bot; convert newlines to <br> if any
+    const replyRaw = j.reply || j.fulfillmentText || "Sorry, no info right now.";
+    // convert plain newlines to <br> — but avoid double-encoding if reply already contains <br> or <a>
+    const safeHtml = (replyRaw.indexOf("<") === -1) ? replyRaw.replace(/\n/g,"<br>") : replyRaw;
     renderMessage(safeHtml, "bot");
 
-    // if user asked a *department* (one of COURSES), show navigation chips to go back
+    // if queryText is a course branch, show back nav
     if(COURSES.includes(queryText)){
       showChips(["⬅ Back to Main"]);
     } else {
@@ -190,22 +190,17 @@ async function callBackend(queryText){
   }
 }
 
-/* ---------- user input ---------- */
-sendBtn.addEventListener("click", ()=>{
+/* user input handlers */
+sendBtn.addEventListener("click", onSend);
+inputEl.addEventListener("keydown", (e)=>{ if(e.key === "Enter"){ e.preventDefault(); onSend(); } });
+
+function onSend(){
   const text = inputEl.value.trim();
   if(!text) return;
   inputEl.value = "";
-  onTextSubmit(text);
-});
-inputEl.addEventListener("keydown", (e)=>{
-  if(e.key === "Enter") { e.preventDefault(); sendBtn.click(); }
-});
-
-function onTextSubmit(text){
-  const t = text.toLowerCase();
-  if(t === "courses" || t === "course"){
+  if(text.toLowerCase() === "courses" || text.toLowerCase() === "course"){
     renderMessage("Courses","user");
-    renderMessage("🎓 <strong>Courses Offered</strong>: IT, CE, EC, Mechanical, Civil, Electrical, Aeronautical, MCA, M.Tech<br>👉 Select a department below","bot");
+    renderMessage("🎓 <b>Courses Offered</b>: IT, CE, EC, Mechanical, Civil, Electrical, Aeronautical, MCA, M.Tech<br>👉 Select a department below","bot");
     showChips(COURSES);
     return;
   }
@@ -213,7 +208,7 @@ function onTextSubmit(text){
   callBackend(text);
 }
 
-/* ---------- theme ---------- */
+/* theme toggle */
 themeBtn.addEventListener("click", ()=>{
   dark = !dark;
   document.body.classList.toggle("dark", dark);
@@ -223,21 +218,20 @@ themeBtn.addEventListener("click", ()=>{
 const savedTheme = localStorage.getItem("svit_theme");
 if(savedTheme === "dark"){ dark = true; document.body.classList.add("dark"); themeBtn.textContent="☀️"; }
 
-/* ---------- restore history ---------- */
+/* restore history */
 function restoreHistory(){
   chatEl.innerHTML = "";
   history.forEach(msg => {
-    const who = msg.who, text = msg.text;
-    const el = createBubbleHTML(text, who);
+    const el = createBubbleHTML(msg.text, msg.who);
     chatEl.appendChild(el);
   });
   chatEl.scrollTop = chatEl.scrollHeight;
 }
 
-/* ---------- init ---------- */
+/* init */
 if(history.length === 0){
-  renderMessage("👋 Welcome to SVIT Helpdesk — quick info & guided flow.","bot");
-  renderMessage("✅ I can help with Admissions, Courses, Fees, Events, Placement and more. Use the suggestions below or type your question.","bot");
+  renderMessage("👋 <b>Welcome</b> to SVIT Helpdesk — quick info & guided flow.","bot");
+  renderMessage("✅ I can help with <b>Admissions, Courses, Fees, Events, Placement</b> and more. Use suggestions below or type your question.","bot");
   showChips(MAIN_CHIPS);
 } else {
   restoreHistory();
