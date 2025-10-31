@@ -1,172 +1,84 @@
-// webhook/index.js
 const express = require("express");
 const cors = require("cors");
+const { twiml: { MessagingResponse } } = require("twilio");
 
 const app = express();
 
-// Accept JSON + urlencoded
+app.use(cors({
+  origin: [
+    "https://svit-helpdesk-bot.vercel.app",
+    "https://svit-helpdesk-bot1.onrender.com",
+    "http://localhost:5500",
+    "http://localhost:3000"
+  ]
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// Allow cross-origin (open while developing)
-app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 
-/* ---------------- Knowledge base (updated & linked to svitvasad.ac.in) -----------
-   NOTE: if your site uses different department slugs, update the URLs below.
-   I used logical paths like /it, /cse etc. Replace them if your site uses another path.
------------------------------------------------------------------------------*/
-const SITE_BASE = "https://svitvasad.ac.in";
-
+/* ✅ MAIN INFORMATION */
 const MAIN = {
-  admissions: `📌 <strong>Admissions</strong><br>
-Eligibility: 10+2 (as per program). Apply via the college admission portal.<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/admission" target="_blank">Apply / Admission Info</a>`,
-
-  fees: `💰 <strong>Fee & Payment</strong><br>
-Fees vary by program & year. Use the college online fees system:<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/online-fees" target="_blank">Online Fees Payment</a>`,
-
-  events: `🎪 <strong>Events & News</strong><br>
-See latest events, fests & workshops on the site:<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/news" target="_blank">News & Events</a>`,
-
-  hostel: `🏠 <strong>Hostel</strong><br>
-Separate hostels for boys & girls with mess and Wi-Fi. For availability contact college administration.<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/facilities" target="_blank">Facilities & Hostels</a>`,
-
-  transport: `🚌 <strong>Transport</strong><br>
-College buses operate on specified routes — contact college admin for routes and timings.`,
-
-  library: `📚 <strong>Library</strong><br>
-SVIT library provides text/reference books and e-journals.<br>
-🔗 <a class="bot-link" href="https://svit-opac.lsie.in" target="_blank">Library OPAC / e-resources</a>`,
-
-  placement: `💼 <strong>Training & Placement</strong><br>
-Training & Placement cell coordinates internships and campus placements.<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/training-placement" target="_blank">Placement & Career</a>`,
-
-  "exams/results": `📝 <strong>Exams & Results</strong><br>
-GTU/department result links and exam notices:<br>
-🔗 <a class="bot-link" href="https://www.gtu.ac.in" target="_blank">GTU Portal (results)</a>`,
-
-  contact: `☎️ <strong>Contact & Helpline</strong><br>
-Phone: +91-9510782981<br>
-Email: contact@svitvasad.ac.in<br>
-Website: <a class="bot-link" href="${SITE_BASE}" target="_blank">${SITE_BASE}</a><br>
-Direct contact page: <a class="bot-link" href="${SITE_BASE}/contact-us" target="_blank">${SITE_BASE}/contact-us</a>`
+  admissions: "📌 Admissions:\nEligibility: 10+2 with PCM.\nApply via ACPC or Management Quota.\nVisit admission office for guidance.",
+  fees: "💰 Fees vary each year.\nVisit Accounts Office for the latest structure.",
+  placement: "💼 Training & Placement:\nInternships + campus recruitment support.\nTop IT, Core & Govt. companies visited.",
+  hostel: "🏠 Hostel Facilities:\nSeparate Boys/Girls hostel.\nIncludes Wi-Fi, gym & mess facilities.",
+  events: "🎪 Campus Life:\nTech Fest: Prakarsh\nCultural Fest: Vrund\nSports tournaments every year!",
+  transport: "🚌 Transport:\nCollege buses available from major city routes.",
+  library: "📚 Library:\nBooks, study spaces & e-resources available.",
+  contact: "☎ Contact Details:\n📞 02692 274766\n📧 info@svitvasad.ac.in\n🌐 https://svitvasad.ac.in/contact-us",
+  "exams/results": "📝 Exams & Results:\nGTU Portal:\n👉 https://www.gtu.ac.in"
 };
 
-/* ---------------- Course pages (short summaries + links) ------------------ */
+/* ✅ COURSE INFORMATION — Medium Style */
 const COURSES = {
-  it: `💻 <strong>Information Technology (IT)</strong><br>
-Focus: Software engineering, data, networks, cloud & modern development workflows.<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/it" target="_blank">Department / IT</a>`,
-
-  ce: `🖥 <strong>Computer Engineering (CE)</strong><br>
-Focus: Systems, algorithms, OS, web, software engineering and projects.<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/cse" target="_blank">Department / Computer Engineering</a>`,
-
-  ec: `📡 <strong>Electronics & Communication (EC)</strong><br>
-Focus: Analog/digital comms, embedded systems, IoT, VLSI basics.<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/ec" target="_blank">Department / EC</a>`,
-
-  mechanical: `⚙️ <strong>Mechanical Engineering</strong><br>
-Focus: Thermodynamics, manufacturing, CAD/CAM, production labs.<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/mechanical" target="_blank">Department / Mechanical</a>`,
-
-  civil: `🏗️ <strong>Civil Engineering</strong><br>
-Focus: Structural design, surveying, construction management.<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/civil" target="_blank">Department / Civil</a>`,
-
-  electrical: `🔌 <strong>Electrical Engineering</strong><br>
-Focus: Electrical machines, power systems & control systems.<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/electrical" target="_blank">Department / Electrical</a>`,
-
-  aeronautical: `✈️ <strong>Aeronautical Engineering</strong><br>
-Focus: Aerodynamics, propulsion basics & aircraft structures.<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/aero" target="_blank">Department / Aeronautical</a>`,
-
-  mca: `🎓 <strong>MCA</strong> — Postgraduate program in applied computing.<br>
-🔗 <a class="bot-link" href="${SITE_BASE}/mca" target="_blank">MCA Dept / Info</a>`,
-
-  "m.tech": `🎓 <strong>M.Tech</strong> — Postgraduate specializations (check department pages).<br>
-🔗 <a class="bot-link" href="${SITE_BASE}" target="_blank">${SITE_BASE}</a>`
+  it: "💻 Information Technology (IT)\nFocus: Software Development, AI/ML, Cloud, Data.",
+  ce: "🖥 Computer Engineering (CE)\nFocus: Systems, OS, Web, Cybersecurity, Databases.",
+  ec: "📡 Electronics & Communication (EC)\nFocus: IoT, VLSI, Communication Systems.",
+  mechanical: "⚙️ Mechanical Engineering\nFocus: Design, Manufacturing, CAD/CAM, Thermodynamics.",
+  civil: "🏗 Civil Engineering\nFocus: Building Design, Planning, Surveying.",
+  electrical: "🔌 Electrical Engineering\nFocus: Power Systems, Industrial Automation.",
+  aeronautical: "✈️ Aeronautical Engineering\nFocus: Aircraft Structure, Aerodynamics.",
+  mca: "🎓 MCA\nPostgraduate IT specialization with software development focus.",
+  "m.tech": "🎓 M.Tech\nAdvanced postgraduate with specialization options."
 };
 
-/* ---------------- resolver ---------------- */
-function getReply(text){
-  if(!text) return "Please ask about Admissions, Courses, Fees, Hostel, Placement, or type 'Courses' to see departments.";
+/* ✅ Reply Resolver */
+function getReply(text) {
+  if (!text) return "Ask about: Admissions, Courses, Fees ✅";
 
-  const q = text.toString().trim().toLowerCase();
+  const q = text.toLowerCase();
 
-  // greetings
-  if(/^(hi|hello|hey|hii|good morning|good afternoon|good evening)\b/.test(q)) {
-    return `👋 Hello! I can help with Admissions, Courses, Fees, Events & more. Type a topic or choose from suggestions. Type <strong>Courses</strong> to open the departments menu.`;
-  }
+  if (/hi|hello|hey/.test(q))
+    return "👋 Hello! Ask about Admissions, Courses, Fees, Hostel, Placement ✅";
 
-  // courses (exact match or includes department name)
-  for(const k of Object.keys(COURSES)){
-    if(q === k || q.includes(k) || q.includes(k.replace(".",""))){
-      return COURSES[k];
-    }
-  }
+  for (const key in COURSES)
+    if (q.includes(key)) return COURSES[key];
 
-  // main mapping
-  for(const k of Object.keys(MAIN)){
-    const keyword = k.split("/")[0]; // "exams" from "exams/results"
-    if(q.includes(keyword) || q === keyword){
-      return MAIN[k];
-    }
-  }
+  for (const key in MAIN)
+    if (q.includes(key.split("/")[0])) return MAIN[key];
 
-  // direct keyword checks
-  if(/admission|apply|admissions/.test(q)) return MAIN.admissions;
-  if(/fee|fees|tuition/.test(q)) return MAIN.fees;
-  if(/hostel/.test(q)) return MAIN.hostel;
-  if(/placement|internship|training/.test(q)) return MAIN.placement;
-  if(/exam|result|gtu/.test(q)) return MAIN["exams/results"];
-  if(/library/.test(q)) return MAIN.library;
-  if(/contact|phone|email/.test(q)) return MAIN.contact;
-
-  // fallback
-  return `I don't have that detail yet. Try one of: <strong>Admissions</strong>, <strong>Courses</strong>, <strong>Fees</strong>, <strong>Placement</strong>.`;
+  return "I don’t have that yet. Try: Admissions, Courses, Hostel, Placement ✅";
 }
 
-/* ----------- frontend webhook (JSON) ---------- */
+/* ✅ Web Frontend Webhook */
 app.post("/webhook", (req, res) => {
-  const query = (req.body.query || req.body.text || req.body.Body || "").toString();
+  const query = req.body.query || "";
   const reply = getReply(query);
-  // return plain text (frontend converts \n to <br>)
   res.json({ reply });
 });
 
-/* ----------- WhatsApp/Twilio webhook (TwiML) ----------
-   We return XML manually (no twilio lib) so no package mismatch during deploy.
-   Twilio expects application/xml or text/xml with <Response><Message>text</Message></Response>
---------------------------------------------------*/
+/* ✅ WhatsApp Webhook */
 app.post("/whatsapp", (req, res) => {
-  const incoming = (req.body.Body || "").toString();
-  const reply = getReply(incoming);
-  // TwiML with escaped content: Twilio will treat text, not HTML.
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message><![CDATA[${stripHtmlForWhatsApp(reply)}]]></Message></Response>`;
+  const twiml = new MessagingResponse();
+  const reply = getReply(req.body.Body || "");
+  twiml.message(reply + "\n\nSend *Menu* anytime ✅");
   res.type("text/xml");
-  res.send(twiml);
+  res.send(twiml.toString());
 });
 
-// helper: remove HTML tags for WhatsApp responses (Twilio / WhatsApp should receive plain text)
-function stripHtmlForWhatsApp(html){
-  // keep link text + URL separately
-  let text = html.replace(/<br\s*\/?>/ig, "\n");
-  // replace anchor tags with "title — url"
-  text = text.replace(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/ig, (m, href, title) => `${title} — ${href}`);
-  // remove remaining tags
-  text = text.replace(/<\/?[^>]+(>|$)/g, "");
-  return text;
-}
+/* ✅ Test Route */
+app.get("/", (_, res) => res.send("✅ SVIT Backend Running"));
 
-/* ----------- root ping ---------- */
-app.get("/", (_, res) => res.send("✅ SVIT Helpdesk webhook running"));
-
-app.listen(PORT, ()=> console.log(`✅ Running on port ${PORT}`));
-
+app.listen(PORT, () => console.log(`✅ Backend Live → PORT ${PORT}`));
