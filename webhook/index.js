@@ -1,74 +1,76 @@
-// webhook/index.js
-const express = require('express');
-const cors = require('cors');
-const { twiml: { MessagingResponse } } = require('twilio');
+const express = require("express");
+const cors = require("cors");
+const { twiml: { MessagingResponse } } = require("twilio");
 
 const app = express();
 
-// ✅ CORS
+// ✅ Fix CORS fully
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
 
-/* Menu Options */
-const MENU = `
-📌 *SVIT Helpdesk Menu*
-Type a number to choose 👇
-
-1️⃣ Admissions  
-2️⃣ Courses  
-3️⃣ Fees  
-4️⃣ Placement  
-
-Or type *menu* anytime ✅
-`;
-
+// ✅ Knowledge Base
 const MAIN = {
-  "1": "📌 Admissions — Eligibility: 10+2 (PCM). Apply via ACPC/GUJCET or management quota.",
-  "2": "🎓 Courses: IT, CE, EC, Mechanical, Civil, Electrical, Aeronautical, MCA, M.Tech.\nReply with branch name for details.",
-  "3": "💰 Fees vary by branch & year; paid semester-wise. Contact accounts office for exact figures.",
-  "4": "💼 Placement: Training & Placement cell arranges internships and campus drives."
+  admissions: "📌 Admissions — Eligibility: 10+2 (PCM). Apply via ACPC/GUJCET or management quota. Visit https://svitvasad.ac.in",
+  courses: "🎓 Courses Offered: IT, CE, EC, Mechanical, Civil, Electrical, Aeronautical, MCA, M.Tech",
+  fees: "💰 Fees vary by branch & year; contact accounts office for exact figures.",
+  hostel: "🏠 Hostels available with Wi-Fi & mess facilities.",
+  placement: "💼 Placement — Strong industry connect with internships & drives",
+  events: "🎪 Events: Prakarsh (Tech), Vrund (Cultural), Workshops",
+  transport: "🚌 College buses available from various routes",
+  library: "📚 Library with books, e-journals & long hours",
+  contact: "☎ Contact Office: Check https://svitvasad.ac.in/contact-us"
 };
 
 const COURSES = {
-  "it": "📘 IT — Software development, networking & cloud foundations.",
-  "ce": "💻 CE — Algorithms, database, system design & software engineering.",
-  "ec": "📡 EC — Communication, embedded systems & signal processing.",
-  "civil": "🏗️ Civil — Structural engineering & construction.",
-  "mechanical": "⚙️ Mechanical — CAD, thermodynamics & manufacturing."
+  it: "📘 IT — Software development, Data, Cloud basics",
+  ce: "💻 CE — Algorithms, Systems, Web & Software Engineering",
+  ec: "📡 EC — Communication, IoT & VLSI basics"
 };
 
-// ✅ WhatsApp Response Logic
-function getResponse(text){
-  const t = text.toLowerCase();
+// ✅ Smart Reply Resolver
+function resolve(text) {
+  if (!text) return { reply: "Please ask about Admissions, Courses, Fees..." };
 
-  if(t === "hi" || t === "hello" || t === "menu"){
-    return MENU;
+  const q = text.toLowerCase();
+
+  if (q.match(/hi|hey|hello/)) {
+    return { reply: "👋 Hi! Ask about Admissions, Courses, Fees & more!" };
   }
 
-  if(MAIN[t]) return MAIN[t];
-
-  for(const c in COURSES){
-    if(t.includes(c)) return COURSES[c];
+  for (const k in COURSES) {
+    if (q.includes(k)) return { reply: COURSES[k] };
   }
 
-  return "❓ I didn't get that.\nSend *menu* to see available options ✅";
+  for (const k in MAIN) {
+    if (q.includes(k)) return { reply: MAIN[k] };
+  }
+
+  return { reply: "I don't have that info yet. Try: *Admissions, Courses, Fees, Hostel* ✅" };
 }
 
-/* ✅ Twilio WhatsApp Webhook Route */
-app.post('/whatsapp', (req, res) => {
-  const incoming = req.body.Body || "";
-  
-  const twiml = new MessagingResponse();
-  twiml.message(getResponse(incoming));
-
-  res.set('Content-Type', 'text/xml');
-  res.send(twiml.toString());
+// ✅ Frontend Webhook API
+app.post("/webhook", (req, res) => {
+  const question = req.body.query || req.body.text || req.body.Body || "";
+  const { reply } = resolve(question);
+  return res.json({ reply });
 });
 
-// ✅ Health Check
-app.get('/', (req,res)=> res.send("✅ SVIT Helpdesk WhatsApp Webhook Running"));
+// ✅ WhatsApp (Twilio) Webhook
+app.post("/whatsapp", (req, res) => {
+  const twiml = new MessagingResponse();
+  const incoming = req.body.Body || "";
+  const { reply } = resolve(incoming);
 
-app.listen(PORT, () => console.log(`🚀 Webhook Live at http://localhost:${PORT}`));
+  twiml.message(reply + "\n\nType *menu* anytime ✅");
+
+  res.set("Content-Type", "text/xml");
+  return res.send(twiml.toString());
+});
+
+// ✅ Root
+app.get("/", (_, res) => res.send("✅ SVIT Webhook Running!"));
+
+app.listen(PORT, () => console.log(`✅ Running on ${PORT}`));
